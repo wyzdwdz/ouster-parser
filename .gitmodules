@@ -1,0 +1,4 @@
+[submodule "3rdparty/rust-packet"]
+	path = 3rdparty/rust-packet
+	url = https://github.com/wyzdwdz/rust-packet.git
+	branch = fix-ipv4-flags
