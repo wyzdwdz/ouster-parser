@@ -5,7 +5,7 @@ Parse pcap/pcapng file to extract Ouster Lidar data and write them into PCD file
 !! Only support LEGACY Lidar data packet format !!
 
 ```
-Parse pcap file to extract Ouster Lidar data
+Parse pcap file to extract Ouster Lidar data and write them into PCD files
 
 Usage: ouster_parser.exe --port <NUM> --meta <FILE> --input <FILE> --output <DIR>
 
