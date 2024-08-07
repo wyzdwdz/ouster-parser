@@ -13,14 +13,12 @@
  *
  *  You should have received a copy of the GNU General Public
  *  License along with assfonts. If not, see <https://www.gnu.org/licenses/>.
- *  
+ *
  *  written by wyzdwdz (https://github.com/wyzdwdz)
  */
 
 use core::f32::consts::PI;
-use std::fs::File;
-use std::io::prelude::*;
-use std::path::Path;
+use std::{fs::File, io::prelude::*, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::Deserialize;
@@ -246,11 +244,20 @@ impl<'a> Legacy<'a> {
     }
 
     fn save_pcd(&mut self) {
-        let buffer: Vec<u8> = self
-            .current_points
-            .iter()
-            .flat_map(|x| x.to_le_bytes().to_vec())
-            .collect();
+        //// safe but slow
+        // let buffer: Vec<u8> = self
+        //     .current_points
+        //     .iter()
+        //     .flat_map(|x| x.to_le_bytes().to_vec())
+        //     .collect();
+
+        // unsafe little endian in x86
+        let buffer = unsafe {
+            std::slice::from_raw_parts(
+                self.current_points.as_ptr() as *const u8,
+                self.current_points.len() * std::mem::size_of::<f32>(),
+            )
+        };
 
         let pcd_header = format!(
             "# .PCD v.7 - Point Cloud Data file format\n\

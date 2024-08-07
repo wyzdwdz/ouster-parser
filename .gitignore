@@ -2,4 +2,5 @@
 *.pcap
 *.pcapng
 *.json
+*.zip
 /pcd

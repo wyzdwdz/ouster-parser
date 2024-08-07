@@ -13,13 +13,14 @@
  *
  *  You should have received a copy of the GNU General Public
  *  License along with assfonts. If not, see <https://www.gnu.org/licenses/>.
- *  
+ *
  *  written by wyzdwdz (https://github.com/wyzdwdz)
  */
 
 use core::net::Ipv4Addr;
-use std::{collections::HashMap, usize, vec::Vec};
+use std::{usize, vec::Vec};
 
+use hashbrown::HashMap;
 use packet::{ip, Packet};
 
 const PACKET_MAX_SIZE: usize = 0xFFFF;
