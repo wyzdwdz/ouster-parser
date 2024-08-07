@@ -68,10 +68,11 @@ pub struct Legacy<'a> {
 
     output_path: &'a Path,
     id: usize,
+    digit: usize,
 }
 
 impl<'a> Legacy<'a> {
-    pub fn new(meta_file: File, output_path: &'a Path) -> Self {
+    pub fn new(meta_file: File, output_path: &'a Path, digit: usize) -> Self {
         let metadata: MetaData = serde_json::from_reader(meta_file).unwrap();
 
         let beam_to_lidar = &metadata.beam_to_lidar_transform;
@@ -105,6 +106,7 @@ impl<'a> Legacy<'a> {
             current_broken: false,
             output_path,
             id: 0,
+            digit,
         }
     }
 
@@ -277,7 +279,9 @@ impl<'a> Legacy<'a> {
             self.current_points.len() / 4
         );
 
-        let filename = format!("{:04}.pcd", self.id);
+        let width = self.digit;
+
+        let filename = format!("{:0width$}.pcd", self.id);
         let file_path = self.output_path.join(filename);
 
         let mut file = File::create(file_path).unwrap();

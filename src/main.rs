@@ -13,7 +13,7 @@
  *
  *  You should have received a copy of the GNU General Public
  *  License along with assfonts. If not, see <https://www.gnu.org/licenses/>.
- *  
+ *
  *  written by wyzdwdz (https://github.com/wyzdwdz)
  */
 
@@ -48,6 +48,10 @@ struct Cli {
     /// Output directory
     #[arg(short, long, value_name = "DIR")]
     output: PathBuf,
+
+    /// Digit number of output PCD filenames
+    #[arg(short, long, value_name = "NUM", default_value_t = 4)]
+    digit: usize,
 }
 
 fn main() {
@@ -60,7 +64,7 @@ fn main() {
 
     let mut reader = create_reader(65536, pcap_file).unwrap();
     let mut seq = IPV4Seq::new();
-    let mut parser = ouster::Legacy::new(json_file, output_path);
+    let mut parser = ouster::Legacy::new(json_file, output_path, cli.digit);
 
     loop {
         match reader.next() {
