@@ -18,7 +18,12 @@
  */
 
 use core::f32::consts::PI;
-use std::{fs::File, io::prelude::*, path::Path};
+use std::{
+    fs::File,
+    io::prelude::*,
+    path::{Path, PathBuf},
+    sync::mpsc::{self, Sender},
+};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::Deserialize;
@@ -52,6 +57,12 @@ struct PointXYZ {
     reflect: f32,
 }
 
+struct FileData {
+    header: String,
+    data: Vec<u8>,
+    path: PathBuf,
+}
+
 pub struct Legacy<'a> {
     metadata: MetaData,
 
@@ -69,6 +80,8 @@ pub struct Legacy<'a> {
     output_path: &'a Path,
     id: usize,
     digit: usize,
+
+    sender: Sender<FileData>,
 }
 
 impl<'a> Legacy<'a> {
@@ -93,6 +106,16 @@ impl<'a> Legacy<'a> {
             .map(|x| (2.0 * PI * (x / 360.0)).sin())
             .collect();
 
+        let (sender, receiver) = mpsc::channel::<FileData>();
+
+        std::thread::spawn(move || {
+            for file_data in receiver {
+                let mut file = File::create(file_data.path).unwrap();
+                file.write_all(file_data.header.as_bytes()).unwrap();
+                file.write_all(file_data.data.as_slice()).unwrap();
+            }
+        });
+
         Self {
             metadata,
             n,
@@ -107,6 +130,7 @@ impl<'a> Legacy<'a> {
             output_path,
             id: 0,
             digit,
+            sender,
         }
     }
 
@@ -284,9 +308,13 @@ impl<'a> Legacy<'a> {
         let filename = format!("{:0width$}.pcd", self.id);
         let file_path = self.output_path.join(filename);
 
-        let mut file = File::create(file_path).unwrap();
-        file.write_all(pcd_header.as_bytes()).unwrap();
-        file.write_all(&buffer).unwrap();
+        let file_data = FileData {
+            header: pcd_header,
+            data: buffer.to_vec(),
+            path: file_path,
+        };
+
+        self.sender.send(file_data).unwrap();
 
         self.id += 1;
     }
