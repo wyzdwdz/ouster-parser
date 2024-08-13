@@ -20,12 +20,16 @@
 mod ouster;
 mod sequence;
 
-use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+};
 
 use clap::Parser;
+use memmap2::Mmap;
+use ouster::Legacy;
 use packet::{ether, ip, udp, Packet};
-use pcap_parser::{create_reader, pcapng::Block, PcapBlockOwned, PcapError};
+use pcap_parser::{pcapng::Block, Capture, PcapBlock};
 
 use crate::sequence::IPV4Seq;
 
@@ -62,40 +66,49 @@ fn main() {
 
     let output_path = Path::new(&cli.output);
 
-    let mut reader = create_reader(65536, pcap_file).unwrap();
+    let mmap = unsafe { Mmap::map(&pcap_file).unwrap() };
+
     let mut seq = IPV4Seq::new();
     let mut parser = ouster::Legacy::new(json_file, output_path, cli.digit);
 
-    loop {
-        match reader.next() {
-            Ok((offset, block)) => {
-                match block {
-                    PcapBlockOwned::Legacy(b) => {
-                        match parse_packet(&mut seq, &b.data[..b.origlen as usize], cli.port) {
-                            Some(data) => {
-                                parser.put(&data);
-                            }
-                            None => (),
-                        };
-                    }
-                    PcapBlockOwned::NG(Block::EnhancedPacket(b)) => {
-                        match parse_packet(&mut seq, &b.data[..b.origlen as usize], cli.port) {
-                            Some(data) => {
-                                parser.put(&data);
-                            }
-                            None => (),
-                        };
-                    }
-                    _ => (),
-                }
-                reader.consume(offset);
+    process_pcap_data(&mmap[..], cli.port, &mut seq, &mut parser);
+}
+
+fn process_pcap_data(data: &[u8], port: u16, seq: &mut IPV4Seq, parser: &mut Legacy) {
+    match pcap_parser::parse_pcap(data) {
+        Ok((_, capture)) => {
+            for block in capture.iter() {
+                process_capture_block(seq, &block, port, parser);
             }
-            Err(PcapError::Eof) => break,
-            Err(PcapError::Incomplete(_)) => {
-                reader.refill().unwrap();
-            }
-            Err(e) => panic!("Error while reading: {:?}", e),
         }
+        Err(_) => match pcap_parser::parse_pcapng(data) {
+            Ok((_, capture)) => {
+                for block in capture.iter() {
+                    process_capture_block(seq, &block, port, parser);
+                }
+            }
+            Err(_) => {
+                eprintln!("Unrecognized file format. (Neither pcap nor pcapng)");
+            }
+        },
+    }
+}
+
+fn process_block(seq: &mut IPV4Seq, data: &[u8], port: u16, parser: &mut Legacy) {
+    if let Some(data) = parse_packet(seq, &data, port) {
+        parser.put(&data);
+    }
+}
+
+fn process_capture_block(seq: &mut IPV4Seq, block: &PcapBlock, port: u16, parser: &mut Legacy) {
+    match block {
+        PcapBlock::Legacy(b) => {
+            process_block(seq, &b.data[..b.origlen as usize], port, parser);
+        }
+        PcapBlock::NG(Block::EnhancedPacket(b)) => {
+            process_block(seq, &b.data[..b.origlen as usize], port, parser);
+        }
+        _ => (),
     }
 }
 
